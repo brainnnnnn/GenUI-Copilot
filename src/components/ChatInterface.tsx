@@ -4,24 +4,33 @@ import { useRef, useEffect, useState } from 'react';
 import { MessageItem } from './MessageItem';
 import { useStreamingChat } from '@/hooks/useStreamingChat';
 
-const DEFAULT_MODEL = 'anthropic/claude-sonnet-4-5';
+const PROVIDER_MODELS = {
+  anthropic: [
+    { value: 'claude-sonnet-4-5', label: 'Sonnet 4.5' },
+    { value: 'claude-opus-4', label: 'Opus 4' },
+    { value: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' },
+  ],
+  google: [
+    { value: 'gemini-2.5-flash-preview-05-20', label: '2.5 Flash' },
+    { value: 'gemini-2.0-flash', label: '2.0 Flash' },
+  ],
+};
 
-const POPULAR_MODELS = [
-  { value: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
-  { value: 'anthropic/claude-opus-4', label: 'Claude Opus 4' },
-  { value: 'google/gemini-2.5-flash-preview', label: 'Gemini 2.5 Flash' },
-  { value: 'google/gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-];
+const PROVIDER_DEFAULTS: Record<string, string> = {
+  anthropic: 'claude-sonnet-4-5',
+  google: 'gemini-2.5-flash-preview-05-20',
+};
 
-function modelLabel(value: string): string {
-  return POPULAR_MODELS.find(m => m.value === value)?.label ?? value;
+function detectProvider(key: string): 'anthropic' | 'google' | 'custom' {
+  if (key.startsWith('sk-ant-')) return 'anthropic';
+  if (key.startsWith('AIza')) return 'google';
+  return 'custom';
 }
 
 export function ChatInterface() {
   const [apiKey, setApiKey] = useState('');
   const [baseURL, setBaseURL] = useState('');
-  const [model, setModel] = useState(DEFAULT_MODEL);
-  const [customModel, setCustomModel] = useState('');
+  const [model, setModel] = useState('');
   const [isDark, setIsDark] = useState(false);
   const [input, setInput] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -30,10 +39,13 @@ export function ChatInterface() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
 
-  const activeModel = customModel.trim() || model;
+  const provider = detectProvider(apiKey);
+  const chips = provider !== 'custom' ? PROVIDER_MODELS[provider] : [];
+  const defaultModel = PROVIDER_DEFAULTS[provider] ?? '';
+  const displayModel = model || defaultModel || '未设置';
+
   const { messages, isLoading, error, sendMessage, stop } = useStreamingChat('/api/chat');
 
-  // Close popover on outside click
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
@@ -49,8 +61,8 @@ export function ChatInterface() {
   }, [messages, isLoading]);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('genui-api-key');
-    if (saved) setApiKey(saved);
+    const savedKey = sessionStorage.getItem('genui-api-key');
+    if (savedKey) setApiKey(savedKey);
     const savedBase = localStorage.getItem('genui-base-url');
     if (savedBase) setBaseURL(savedBase);
     const savedModel = localStorage.getItem('genui-model');
@@ -85,7 +97,7 @@ export function ChatInterface() {
     if (!input.trim() || !apiKey || isLoading) return;
     const text = input;
     setInput('');
-    sendMessage(text, { apiKey, model: activeModel, baseURL: baseURL.trim() || undefined });
+    sendMessage(text, { apiKey, model, baseURL: baseURL.trim() || undefined });
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -96,7 +108,6 @@ export function ChatInterface() {
   }
 
   const canSend = !isLoading && !!apiKey && !!input.trim();
-  const displayLabel = customModel.trim() ? customModel.trim() : modelLabel(model);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -105,22 +116,18 @@ export function ChatInterface() {
         {/* Left: brand */}
         <div className="flex items-center gap-2">
           <span className="font-semibold text-sm">AI 家教</span>
-          <span className="text-xs text-muted-foreground px-1.5 py-0.5 rounded bg-muted/60">
-            全科
-          </span>
+          <span className="text-xs text-muted-foreground px-1.5 py-0.5 rounded bg-muted/60">全科</span>
         </div>
 
-        {/* Center: model / settings trigger */}
+        {/* Center: settings trigger */}
         <div ref={settingsRef} className="absolute left-1/2 -translate-x-1/2">
           <button
             onClick={() => setSettingsOpen(v => !v)}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border/50 hover:bg-muted/50 transition-colors text-muted-foreground"
           >
-            {!apiKey && (
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
-            )}
-            <span className="max-w-[180px] truncate">
-              {apiKey ? displayLabel : '设置 API Key'}
+            {!apiKey && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />}
+            <span className="max-w-[200px] truncate">
+              {apiKey ? displayModel : '设置 API Key'}
             </span>
             <span className="opacity-50 text-[10px]">⚙</span>
           </button>
@@ -128,7 +135,6 @@ export function ChatInterface() {
           {/* Settings popover */}
           {settingsOpen && (
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 bg-background border border-border/50 rounded-xl shadow-lg z-50 p-4 flex flex-col gap-3">
-              {/* Popover header */}
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-foreground">API 设置</span>
                 <button
@@ -155,44 +161,50 @@ export function ChatInterface() {
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] text-muted-foreground">
                   Base URL
-                  <span className="opacity-50 ml-1">（可选）</span>
+                  <span className="opacity-50 ml-1">（其他提供商必填）</span>
                 </label>
                 <input
                   type="text"
-                  placeholder="https://api.moonshot.cn/v1"
+                  placeholder="https://api.example.com/v1"
                   value={baseURL}
                   onChange={e => saveBaseURL(e.target.value)}
                   className="w-full text-xs px-2.5 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
                 />
               </div>
 
-              {/* Model selector */}
-              <div className="flex flex-col gap-1">
-                <label className="text-[11px] text-muted-foreground">模型</label>
-                <select
-                  value={model}
-                  onChange={e => saveModel(e.target.value)}
-                  className="w-full text-xs px-2 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
-                >
-                  {POPULAR_MODELS.map(m => (
-                    <option key={m.value} value={m.value}>{m.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Custom model ID */}
-              <div className="flex flex-col gap-1">
+              {/* Model */}
+              <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] text-muted-foreground">
-                  自定义 Model ID
-                  <span className="opacity-50 ml-1">（可选，优先于下拉）</span>
+                  模型
+                  {defaultModel && !model && (
+                    <span className="opacity-50 ml-1">（留空使用 {defaultModel}）</span>
+                  )}
                 </label>
                 <input
                   type="text"
-                  placeholder="moonshot-v1-8k"
-                  value={customModel}
-                  onChange={e => setCustomModel(e.target.value)}
+                  placeholder={defaultModel || 'model-id'}
+                  value={model}
+                  onChange={e => saveModel(e.target.value)}
                   className="w-full text-xs px-2.5 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
                 />
+                {/* Provider chips */}
+                {chips.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {chips.map(c => (
+                      <button
+                        key={c.value}
+                        onClick={() => saveModel(c.value)}
+                        className={`text-[11px] px-2 py-0.5 rounded-full border transition-colors ${
+                          model === c.value
+                            ? 'border-foreground/30 bg-muted text-foreground'
+                            : 'border-border/50 text-muted-foreground hover:border-border hover:text-foreground'
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -259,10 +271,7 @@ export function ChatInterface() {
       {/* Input */}
       <div className="shrink-0 px-4 py-3 border-t border-border/50">
         <form
-          onSubmit={e => {
-            e.preventDefault();
-            if (canSend) submit();
-          }}
+          onSubmit={e => { e.preventDefault(); if (canSend) submit(); }}
           className="flex items-end gap-2"
         >
           <textarea
