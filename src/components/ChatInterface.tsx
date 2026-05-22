@@ -10,9 +10,7 @@ const POPULAR_MODELS = [
   { value: 'anthropic/claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
   { value: 'anthropic/claude-opus-4', label: 'Claude Opus 4' },
   { value: 'google/gemini-2.5-flash-preview', label: 'Gemini 2.5 Flash' },
-  { value: 'qwen/qwen-2.5-72b-instruct', label: 'Qwen 2.5 72B' },
-  { value: 'deepseek/deepseek-chat-v3-0324', label: 'DeepSeek V3' },
-  { value: 'openai/gpt-4.1', label: 'GPT-4.1' },
+  { value: 'google/gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
 ];
 
 function modelLabel(value: string): string {
@@ -146,7 +144,7 @@ export function ChatInterface() {
                 <label className="text-[11px] text-muted-foreground">API Key</label>
                 <input
                   type="password"
-                  placeholder="sk-ant-… / AIza… / sk-or-… / sk-…"
+                  placeholder="sk-ant-… (Anthropic) / AIza… (Google)"
                   value={apiKey}
                   onChange={e => saveApiKey(e.target.value)}
                   className="w-full text-xs px-2.5 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"

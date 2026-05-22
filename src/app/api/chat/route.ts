@@ -312,7 +312,8 @@ async function runOpenAI(
   messages: Array<{ role: string; content: string }>,
   ctrl: Controller,
 ) {
-  const url = (baseURL?.replace(/\/$/, '') ?? 'https://openrouter.ai/api/v1') + '/chat/completions';
+  if (!baseURL) throw new Error('baseURL is required for non-Anthropic/Google providers');
+  const url = baseURL.replace(/\/$/, '') + '/chat/completions';
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` };
 
   const body1 = JSON.stringify({
