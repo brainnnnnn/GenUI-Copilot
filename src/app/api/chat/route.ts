@@ -4,6 +4,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const enc = new TextEncoder();
+const DEFAULT_MODEL = 'moonshot-v1-8k';
+const FETCH_TIMEOUT_MS = 60_000;
 
 function ndjson(obj: object) {
   return enc.encode(JSON.stringify(obj) + '\n');
@@ -253,8 +255,14 @@ export async function POST(req: Request) {
     baseURL?: string;
   };
 
-  if (!apiKey) {
+  if (!apiKey || typeof apiKey !== 'string') {
     return new Response('Missing API key', { status: 400 });
+  }
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return new Response('Invalid messages', { status: 400 });
+  }
+  if (model !== undefined && typeof model !== 'string') {
+    return new Response('Invalid model', { status: 400 });
   }
 
   const isAnthropic = !baseURL && apiKey.startsWith('sk-ant-');
@@ -308,14 +316,14 @@ async function runOpenAI(
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` };
 
   const body1 = JSON.stringify({
-    model: model || 'moonshot-v1-8k',
+    model: model || DEFAULT_MODEL,
     messages: [{ role: 'system', content: WIDGET_SYSTEM_PROMPT }, ...messages],
     tools: [RENDER_WIDGET_TOOL],
     tool_choice: 'auto',
     stream: true,
   });
 
-  const res1 = await fetch(url, { method: 'POST', headers, body: body1 });
+  const res1 = await fetch(url, { method: 'POST', headers, body: body1, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!res1.ok) {
     const err = await res1.text();
     throw new Error(`API error ${res1.status}: ${err}`);
@@ -327,7 +335,7 @@ async function runOpenAI(
 
   // Second turn: send tool result, get continuation text
   const body2 = JSON.stringify({
-    model: model || 'moonshot-v1-8k',
+    model: model || DEFAULT_MODEL,
     messages: [
       { role: 'system', content: WIDGET_SYSTEM_PROMPT },
       ...messages,
@@ -347,7 +355,7 @@ async function runOpenAI(
     stream: true,
   });
 
-  const res2 = await fetch(url, { method: 'POST', headers, body: body2 });
+  const res2 = await fetch(url, { method: 'POST', headers, body: body2, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (res2.ok) await streamOpenAI(res2, ctrl);
 }
 
@@ -383,7 +391,7 @@ async function runAnthropic(
     stream: true,
   });
 
-  const res1 = await fetch(url, { method: 'POST', headers, body: body1 });
+  const res1 = await fetch(url, { method: 'POST', headers, body: body1, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (!res1.ok) {
     const err = await res1.text();
     throw new Error(`Anthropic error ${res1.status}: ${err}`);
@@ -410,6 +418,6 @@ async function runAnthropic(
     stream: true,
   });
 
-  const res2 = await fetch(url, { method: 'POST', headers, body: body2 });
+  const res2 = await fetch(url, { method: 'POST', headers, body: body2, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (res2.ok) await streamAnthropic(res2, ctrl);
 }

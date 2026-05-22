@@ -35,9 +35,9 @@ export function MessageItem({ role, content, segments, isStreaming = false }: Me
           <span className="inline-block w-1.5 h-4 bg-foreground/50 animate-pulse rounded-sm" />
         )}
 
-        {segments.map((seg, i) =>
+        {segments.map((seg) =>
           seg.type === 'text' ? (
-            <div key={i} className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
+            <div key={seg.key} className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
               <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{seg.content}</ReactMarkdown>
             </div>
           ) : (

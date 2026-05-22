@@ -37,8 +37,8 @@ export const WIDGET_CSS_BRIDGE = /* css */ `
 --color-border-warning:       var(--status-warning-border);
 
 /* ── Typography ───────────────────────────────────── */
---font-sans:                  var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
---font-mono:                  var(--font-geist-mono), ui-monospace, monospace;
+--font-sans:                  ui-sans-serif, system-ui, -apple-system, sans-serif;
+--font-mono:                  ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
 --font-serif:                 Georgia, 'Times New Roman', serif;
 
 /* ── Layout ───────────────────────────────────────── */

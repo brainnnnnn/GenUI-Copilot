@@ -5,6 +5,7 @@ import { useState, useCallback, useRef } from 'react';
 export interface TextSegment {
   type: 'text';
   content: string;
+  key: string;
 }
 
 export interface WidgetSegment {
@@ -68,7 +69,7 @@ export function useStreamingChat(apiPath = '/api/chat') {
           if (last?.type === 'text') {
             last.content += v;
           } else {
-            segs.push({ type: 'text', content: v });
+            segs.push({ type: 'text', content: v, key: `t-${segs.length}` });
           }
           break;
         }

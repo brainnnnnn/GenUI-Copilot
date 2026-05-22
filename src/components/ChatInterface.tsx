@@ -33,7 +33,7 @@ export function ChatInterface() {
   }, [messages, isLoading]);
 
   useEffect(() => {
-    const saved = localStorage.getItem('genui-api-key');
+    const saved = sessionStorage.getItem('genui-api-key');
     if (saved) setApiKey(saved);
     const savedBase = localStorage.getItem('genui-base-url');
     if (savedBase) setBaseURL(savedBase);
@@ -52,7 +52,7 @@ export function ChatInterface() {
 
   function saveApiKey(val: string) {
     setApiKey(val);
-    localStorage.setItem('genui-api-key', val);
+    sessionStorage.setItem('genui-api-key', val);
   }
 
   function saveBaseURL(val: string) {
