@@ -15,6 +15,10 @@ const POPULAR_MODELS = [
   { value: 'openai/gpt-4.1', label: 'GPT-4.1' },
 ];
 
+function modelLabel(value: string): string {
+  return POPULAR_MODELS.find(m => m.value === value)?.label ?? value;
+}
+
 export function ChatInterface() {
   const [apiKey, setApiKey] = useState('');
   const [baseURL, setBaseURL] = useState('');
@@ -22,11 +26,25 @@ export function ChatInterface() {
   const [customModel, setCustomModel] = useState('');
   const [isDark, setIsDark] = useState(false);
   const [input, setInput] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const settingsRef = useRef<HTMLDivElement>(null);
 
   const activeModel = customModel.trim() || model;
   const { messages, isLoading, error, sendMessage, stop } = useStreamingChat('/api/chat');
+
+  // Close popover on outside click
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setSettingsOpen(false);
+      }
+    }
+    if (settingsOpen) document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [settingsOpen]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -80,17 +98,109 @@ export function ChatInterface() {
   }
 
   const canSend = !isLoading && !!apiKey && !!input.trim();
+  const displayLabel = customModel.trim() ? customModel.trim() : modelLabel(model);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-border/50 shrink-0">
+      <header className="relative flex items-center justify-between px-4 py-3 border-b border-border/50 shrink-0">
+        {/* Left: brand */}
         <div className="flex items-center gap-2">
           <span className="font-semibold text-sm">AI 家教</span>
           <span className="text-xs text-muted-foreground px-1.5 py-0.5 rounded bg-muted/60">
             全科
           </span>
         </div>
+
+        {/* Center: model / settings trigger */}
+        <div ref={settingsRef} className="absolute left-1/2 -translate-x-1/2">
+          <button
+            onClick={() => setSettingsOpen(v => !v)}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border/50 hover:bg-muted/50 transition-colors text-muted-foreground"
+          >
+            {!apiKey && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+            )}
+            <span className="max-w-[180px] truncate">
+              {apiKey ? displayLabel : '设置 API Key'}
+            </span>
+            <span className="opacity-50 text-[10px]">⚙</span>
+          </button>
+
+          {/* Settings popover */}
+          {settingsOpen && (
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-80 bg-background border border-border/50 rounded-xl shadow-lg z-50 p-4 flex flex-col gap-3">
+              {/* Popover header */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-foreground">API 设置</span>
+                <button
+                  onClick={() => setSettingsOpen(false)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground transition-colors leading-none"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* API Key */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">API Key</label>
+                <input
+                  type="password"
+                  placeholder="sk-ant-… / AIza… / sk-or-… / sk-…"
+                  value={apiKey}
+                  onChange={e => saveApiKey(e.target.value)}
+                  className="w-full text-xs px-2.5 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
+                />
+              </div>
+
+              {/* Base URL */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">
+                  Base URL
+                  <span className="opacity-50 ml-1">（可选）</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="https://api.moonshot.cn/v1"
+                  value={baseURL}
+                  onChange={e => saveBaseURL(e.target.value)}
+                  className="w-full text-xs px-2.5 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
+                />
+              </div>
+
+              {/* Model selector */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">模型</label>
+                <select
+                  value={model}
+                  onChange={e => saveModel(e.target.value)}
+                  className="w-full text-xs px-2 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
+                >
+                  {POPULAR_MODELS.map(m => (
+                    <option key={m.value} value={m.value}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Custom model ID */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] text-muted-foreground">
+                  自定义 Model ID
+                  <span className="opacity-50 ml-1">（可选，优先于下拉）</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="moonshot-v1-8k"
+                  value={customModel}
+                  onChange={e => setCustomModel(e.target.value)}
+                  className="w-full text-xs px-2.5 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right: dark mode toggle */}
         <button
           onClick={toggleTheme}
           className="text-xs px-2.5 py-1 rounded-md border border-border/50 hover:bg-muted/50 transition-colors text-muted-foreground"
@@ -98,44 +208,6 @@ export function ChatInterface() {
           {isDark ? '☀ Light' : '☾ Dark'}
         </button>
       </header>
-
-      {/* Config bar */}
-      <div className="flex flex-col gap-1.5 px-4 py-2 border-b border-border/30 bg-muted/20 shrink-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <input
-            type="password"
-            placeholder="API Key — sk-ant-… (Anthropic) / AIza… (Google) / sk-or-… (OpenRouter) / sk-… (OpenAI)"
-            value={apiKey}
-            onChange={e => saveApiKey(e.target.value)}
-            className="flex-1 min-w-0 text-xs px-2.5 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
-          />
-          <input
-            type="text"
-            placeholder="Base URL (可选，如 https://api.moonshot.cn/v1)"
-            value={baseURL}
-            onChange={e => saveBaseURL(e.target.value)}
-            className="w-72 text-xs px-2.5 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
-          />
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <select
-            value={model}
-            onChange={e => saveModel(e.target.value)}
-            className="text-xs px-2 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
-          >
-            {POPULAR_MODELS.map(m => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="或直接填 model id，如 moonshot-v1-8k"
-            value={customModel}
-            onChange={e => setCustomModel(e.target.value)}
-            className="flex-1 min-w-0 text-xs px-2.5 py-1.5 rounded border border-border/50 bg-background focus:outline-none focus:border-border"
-          />
-        </div>
-      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4">
